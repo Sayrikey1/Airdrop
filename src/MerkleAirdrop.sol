@@ -1,9 +1,12 @@
-// SPDX-License-Identifier: SEE LICENSE IN LICENSE
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
 import {IERC20, SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {MerkleProof} from "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
 import { EIP712 } from "@openzeppelin/contracts/utils/cryptography/EIP712.sol";
+import { SignatureChecker } from "@openzeppelin/contracts/utils/cryptography/SignatureChecker.sol";
+import { ECDSA } from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
+import { MessageHashUtils } from "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
 
 
 contract MerkleAirdrop is EIP712 {
@@ -36,7 +39,7 @@ contract MerkleAirdrop is EIP712 {
         if (s_hasClaimed[account]){
             revert MerkleAirdrop__AlreadyClaimed();
         }
-        if (!_isValideSignature(account, getMessage(account, amount), v, r, s)){
+        if (!_isValidSignature(account, getMessageHash(account, amount), v, r, s)){
             revert MerkleAirdrop__InvalidSignature();
         }
         bytes32 leaf = keccak256(bytes.concat(keccak256(abi.encode(account, amount))));
@@ -48,7 +51,7 @@ contract MerkleAirdrop is EIP712 {
         i_airdropToken.safeTransfer(account, amount);
     }  
 
-    function getMessage(address account, uint256 amount) public view returns (bytes32){
+    function getMessageHash(address account, uint256 amount) public view returns (bytes32){
         return _hashTypedDataV4(
             keccak256(abi.encode(MESSAGE_TYPEHASH, account, AirdropClaim({account: account, amount: amount})))
         );
@@ -63,6 +66,7 @@ contract MerkleAirdrop is EIP712 {
     }
 
     function _isValidSignature(address account, bytes32 digest, uint8 v, bytes32 r, bytes32 s) internal pure returns(bool){
-        (address actualSigner,,) = ECDSA.tryRecover()
+        (address actualSigner,,) = ECDSA.tryRecover(digest,v,r,s);
+        return actualSigner == account;
     }
 }
